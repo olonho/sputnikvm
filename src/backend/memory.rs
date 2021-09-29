@@ -109,6 +109,9 @@ impl<'vicinity> Backend for MemoryBackend<'vicinity> {
 		self.state.contains_key(&address)
 	}
 
+	fn enter_scope(&self, _scope_id: u32) {}
+	fn exit_scope(&self) {}
+
 	fn basic(&self, address: H160) -> Basic {
 		self.state
 			.get(&address)

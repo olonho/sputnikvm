@@ -77,6 +77,11 @@ pub trait Backend {
 	fn storage(&self, address: H160, index: H256) -> H256;
 	/// Get original storage value of address at index, if available.
 	fn original_storage(&self, address: H160, index: H256) -> Option<H256>;
+
+	/// Start a profiling scope
+	fn enter_scope(&self, scope_id: u32);
+	/// Exit the last entered profiling scope
+	fn exit_scope(&self);
 }
 
 /// EVM backend that can apply changes.

@@ -442,6 +442,12 @@ impl<'backend, 'config, B: Backend> Backend for MemoryStackState<'backend, 'conf
 	fn chain_id(&self) -> U256 {
 		self.backend.chain_id()
 	}
+	fn enter_scope(&self, scope_id: u32) {
+		self.backend.enter_scope(scope_id);
+	}
+	fn exit_scope(&self) {
+		self.backend.exit_scope();
+	}
 
 	fn exists(&self, address: H160) -> bool {
 		self.substate.known_account(address).is_some() || self.backend.exists(address)
