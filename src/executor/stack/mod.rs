@@ -1030,4 +1030,12 @@ impl<'config, S: StackState<'config>> Handler for StackExecutor<'config, S> {
 
 		Ok(())
 	}
+
+	fn enter_scope(&self, scope_id: u32) {
+		self.state.enter_scope(scope_id)
+	}
+
+	fn exit_scope(&self) {
+		self.state.exit_scope();
+	}
 }

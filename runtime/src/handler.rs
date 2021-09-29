@@ -115,4 +115,9 @@ pub trait Handler {
 	fn other(&mut self, _opcode: Opcode, _stack: &mut Machine) -> Result<(), ExitError> {
 		Err(ExitError::OutOfGas)
 	}
+
+	/// Start a profiling scope
+	fn enter_scope(&self, scope_id: u32);
+	/// Exit the last entered profiling scope
+	fn exit_scope(&self);
 }
