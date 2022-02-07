@@ -41,6 +41,7 @@ tracing = [
   "evm-gasometer/tracing",
   "evm-runtime/tracing"
 ]
+noop-gas = ["evm-gasometer/noop-gas"]
 
 [workspace]
 members = [
