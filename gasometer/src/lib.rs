@@ -65,10 +65,10 @@ pub struct Gasometer<'config> {
 impl<'config> Gasometer<'config> {
 	/// Create a new gasometer with given gas limit and config.
 	pub fn new(gas_limit: u64, config: &'config Config) -> Self {
-		#[cfg(feature = "noop-gas")] {
+		#[cfg(all(feature = "noop-gas", feature = "std"))] {
 			println!("EVM gas metering is DISABLED!")
 		}
-		#[cfg(feature = "noop-gas")] {
+		#[cfg(all(feature = "noop-gas", feature = "std"))] {
 			println!("EVM gas metering is ENABLED!")
 		}
 		Self {
