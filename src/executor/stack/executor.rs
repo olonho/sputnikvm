@@ -536,12 +536,11 @@ impl<'config, 'precompiles, S: StackState<'config>, P: PrecompileSet>
 
 	/// Get used gas for the current executor, given the price.
 	pub fn used_gas(&self) -> u64 {
-		1000000
-		/*self.state.metadata().gasometer.total_used_gas()
+		self.state.metadata().gasometer.total_used_gas()
 			- min(
 				self.state.metadata().gasometer.total_used_gas() / self.config.max_refund_quotient,
 				self.state.metadata().gasometer.refunded_gas() as u64,
-			)*/
+			)
 	}
 
 	/// Get fee needed for the current executor, given the price.

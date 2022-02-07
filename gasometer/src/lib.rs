@@ -1,7 +1,6 @@
 //! EVM gasometer.
 
-#![deny(warnings)]
-#![forbid(unsafe_code, unused_variables)]
+#![forbid(unsafe_code)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
 extern crate alloc;
@@ -33,6 +32,7 @@ use evm_core::{ExitError, Opcode, Stack};
 use evm_runtime::{Config, Handler};
 use primitive_types::{H160, H256, U256};
 
+#[cfg(not(feature = "noop-gas"))]
 macro_rules! try_or_fail {
 	( $inner:expr, $e:expr ) => {
 		match $e {
@@ -78,17 +78,25 @@ impl<'config> Gasometer<'config> {
 	}
 
 	#[inline]
+	#[allow(unused_variables)]
 	/// Returns the numerical gas cost value.
 	pub fn gas_cost(&self, cost: GasCost, gas: u64) -> Result<u64, ExitError> {
-		match self.inner.as_ref() {
+		#[cfg(not(feature = "noop-gas"))]
+		return match self.inner.as_ref() {
 			Ok(inner) => inner.gas_cost(cost, gas),
 			Err(e) => Err(e.clone()),
-		}
+		};
+		#[cfg(feature = "noop-gas")]
+		return Ok(1);
 	}
 
 	#[inline]
+	#[allow(unused_variables)]
 	fn inner_mut(&mut self) -> Result<&mut Inner<'config>, ExitError> {
-		self.inner.as_mut().map_err(|e| e.clone())
+		#[cfg(not(feature = "noop-gas"))]
+		return self.inner.as_mut().map_err(|e| e.clone());
+		#[cfg(feature = "noop-gas")]
+		unimplemented!()
 	}
 
 	#[inline]
@@ -100,28 +108,37 @@ impl<'config> Gasometer<'config> {
 	#[inline]
 	/// Remaining gas.
 	pub fn gas(&self) -> u64 {
-		match self.inner.as_ref() {
+		#[cfg(not(feature = "noop-gas"))]
+		return match self.inner.as_ref() {
 			Ok(inner) => self.gas_limit - inner.used_gas - inner.memory_gas,
 			Err(_) => 0,
-		}
+		};
+		#[cfg(feature = "noop-gas")]
+		return 1;
 	}
 
 	#[inline]
 	/// Total used gas.
 	pub fn total_used_gas(&self) -> u64 {
-		match self.inner.as_ref() {
+		#[cfg(not(feature = "noop-gas"))]
+		return match self.inner.as_ref() {
 			Ok(inner) => inner.used_gas + inner.memory_gas,
 			Err(_) => self.gas_limit,
-		}
+		};
+		#[cfg(feature = "noop-gas")]
+		return 1;
 	}
 
 	#[inline]
 	/// Refunded gas.
 	pub fn refunded_gas(&self) -> i64 {
-		match self.inner.as_ref() {
+		#[cfg(not(feature = "noop-gas"))]
+		return match self.inner.as_ref() {
 			Ok(inner) => inner.refunded_gas,
 			Err(_) => 0,
-		}
+		};
+		#[cfg(feature = "noop-gas")]
+		return 0;
 	}
 
 	/// Explicitly fail the gasometer with out of gas. Return `OutOfGas` error.
@@ -131,6 +148,7 @@ impl<'config> Gasometer<'config> {
 	}
 
 	#[inline]
+	#[cfg(not(feature = "noop-gas"))]
 	/// Record an explicit cost.
 	pub fn record_cost(&mut self, cost: u64) -> Result<(), ExitError> {
 		event!(RecordCost {
@@ -149,6 +167,14 @@ impl<'config> Gasometer<'config> {
 	}
 
 	#[inline]
+	#[allow(unused_variables)]
+	#[cfg(feature = "noop-gas")]
+	pub fn record_cost(&mut self, cost: u64) -> Result<(), ExitError> {
+		Ok(())
+	}
+
+	#[inline]
+	#[allow(unused_variables)]
 	/// Record an explicit refund.
 	pub fn record_refund(&mut self, refund: i64) -> Result<(), ExitError> {
 		event!(RecordRefund {
@@ -156,9 +182,14 @@ impl<'config> Gasometer<'config> {
 			snapshot: self.snapshot(),
 		});
 
-		self.inner_mut()?.refunded_gas += refund;
+
+		#[cfg(not(feature = "noop-gas"))] {
+			self.inner_mut()?.refunded_gas += refund;
+		}
 		Ok(())
 	}
+
+
 
 	#[inline]
 	/// Record `CREATE` code deposit.
@@ -168,6 +199,7 @@ impl<'config> Gasometer<'config> {
 	}
 
 	/// Record opcode gas cost.
+	#[cfg(not(feature = "noop-gas"))]
 	pub fn record_dynamic_cost(
 		&mut self,
 		cost: GasCost,
@@ -206,7 +238,19 @@ impl<'config> Gasometer<'config> {
 		Ok(())
 	}
 
+	/// Record opcode gas cost.
+	#[cfg(feature = "noop-gas")]
+	#[allow(unused_variables)]
+	pub fn record_dynamic_cost(
+		&mut self,
+		cost: GasCost,
+		memory: Option<MemoryCost>,
+	) -> Result<(), ExitError> {
+		Ok(())
+	}
+
 	#[inline]
+	#[allow(unused_variables)]
 	/// Record opcode stipend.
 	pub fn record_stipend(&mut self, stipend: u64) -> Result<(), ExitError> {
 		event!(RecordStipend {
@@ -214,11 +258,14 @@ impl<'config> Gasometer<'config> {
 			snapshot: self.snapshot(),
 		});
 
-		self.inner_mut()?.used_gas -= stipend;
+		#[cfg(not(feature = "noop-gas"))] {
+			self.inner_mut()?.used_gas -= stipend;
+		}
 		Ok(())
 	}
 
 	/// Record transaction cost.
+	#[cfg(not(feature = "noop-gas"))]
 	pub fn record_transaction(&mut self, cost: TransactionCost) -> Result<(), ExitError> {
 		let gas_cost = match cost {
 			TransactionCost::Call {
@@ -258,6 +305,13 @@ impl<'config> Gasometer<'config> {
 		}
 
 		self.inner_mut()?.used_gas += gas_cost;
+		Ok(())
+	}
+
+	/// Record transaction cost.
+	#[cfg(feature = "noop-gas")]
+	#[allow(unused_variables)]
+	pub fn record_transaction(&mut self, cost: TransactionCost) -> Result<(), ExitError> {
 		Ok(())
 	}
 
