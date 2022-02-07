@@ -99,6 +99,7 @@ impl<'config> Gasometer<'config> {
 	#[inline]
 	#[allow(unused_variables)]
 	fn inner_mut(&mut self) -> Result<&mut Inner<'config>, ExitError> {
+		unimplemented!();
 		#[cfg(not(feature = "noop-gas"))]
 		return self.inner.as_mut().map_err(|e| e.clone());
 		#[cfg(feature = "noop-gas")]
