@@ -68,7 +68,7 @@ impl<'config> Gasometer<'config> {
 		#[cfg(all(feature = "noop-gas", feature = "std"))] {
 			println!("EVM gas metering is DISABLED!")
 		}
-		#[cfg(all(feature = "noop-gas", feature = "std"))] {
+		#[cfg(all(not(feature = "noop-gas"), feature = "std"))] {
 			println!("EVM gas metering is ENABLED!")
 		}
 		Self {
