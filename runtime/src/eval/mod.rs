@@ -2,6 +2,8 @@
 mod macros;
 mod system;
 
+use primitive_types::{H256, U256};
+use evm_core::Machine;
 use crate::{CallScheme, ExitReason, Handler, Opcode, Runtime};
 
 pub enum Control<H: Handler> {
@@ -58,4 +60,24 @@ pub fn eval<H: Handler>(state: &mut Runtime, opcode: Opcode, handler: &mut H) ->
 		Opcode::BASEFEE => system::base_fee(state, handler),
 		_ => handle_other(state, opcode, handler),
 	}
+}
+
+pub fn fill_external_table(table: &mut [fn(state: &mut Machine, position: usize, context: usize) -> evm_core::Control; 256]) {
+	use std::mem::transmute;
+	macro_rules! from_context {
+		( $context:expr ) => (
+			unsafe { transmute::<usize, &mut Runtime>($context) }
+		)
+	}
+	fn address(machine: &mut Machine, _position: usize, context: usize) -> evm_core::Control {
+		let runtime = from_context!(context); // unsafe { transmute::<usize, &mut Runtime>(context) };
+		let ret = H256::from(runtime.context.address);
+		match machine.stack_mut().push(U256::from_big_endian(ret.as_bytes())) {
+			Ok(()) => (),
+			Err(e) => return evm_core::Control::Exit(e.into()),
+		}
+		evm_core::Control::Continue(1)
+	}
+
+	table[Opcode::ADDRESS.as_usize()] = address;
 }

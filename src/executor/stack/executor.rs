@@ -10,10 +10,12 @@ use alloc::{
 	vec::Vec,
 };
 use core::{cmp::min, convert::Infallible};
+use std::mem::transmute;
 use ethereum::Log;
-use evm_core::{ExitFatal, ExitRevert, InterpreterHandler, Machine, Trap};
+use evm_core::{Control, ExitFatal, ExitRevert, InterpreterHandler, Machine, Trap};
 use primitive_types::{H160, H256, U256};
 use sha3::{Digest, Keccak256};
+use evm_runtime::fill_external_table;
 
 macro_rules! emit_exit {
 	($reason:expr) => {{
@@ -935,8 +937,10 @@ impl<'config, 'precompiles, S: StackState<'config>, P: PrecompileSet>
 impl<'config, 'precompiles, S: StackState<'config>, P: PrecompileSet> InterpreterHandler
 	for StackExecutor<'config, 'precompiles, S, P>
 {
-	#[inline]
-	fn before_eval(&mut self) {}
+	fn before_eval(&mut self, table: &mut [fn(_: &mut Machine, _: usize, _: usize) -> Control; 256]) {
+		// Fill in all external bytecode declarations.
+		fill_external_table(table)
+	}
 
 	#[inline]
 	fn after_eval(&mut self) {}
@@ -947,14 +951,17 @@ impl<'config, 'precompiles, S: StackState<'config>, P: PrecompileSet> Interprete
 		opcode: Opcode,
 		_pc: usize,
 		machine: &Machine,
-		address: &H160,
+		context_raw: usize,
 	) -> Result<(), ExitError> {
+		let runtime = unsafe {
+			transmute::<usize, &mut Runtime>(context_raw)
+		};
 		#[cfg(feature = "tracing")]
 		{
 			use evm_runtime::tracing::Event::Step;
 			evm_runtime::tracing::with(|listener| {
 				listener.event(Step {
-					address: *address,
+					address: runtime.context().address,
 					opcode,
 					position: &Ok(_pc),
 					stack: machine.stack(),
@@ -970,8 +977,9 @@ impl<'config, 'precompiles, S: StackState<'config>, P: PrecompileSet> Interprete
 				.record_cost(cost as u64)?;
 		} else {
 			let is_static = self.state.metadata().is_static;
+			let address = runtime.context().address;
 			let (gas_cost, target, memory_cost) = gasometer::dynamic_opcode_cost(
-				*address,
+				address,
 				opcode,
 				machine.stack(),
 				is_static,

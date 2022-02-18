@@ -1,7 +1,7 @@
 //! Runtime layer for EVM.
 
 #![deny(warnings)]
-#![forbid(unsafe_code, unused_variables)]
+#![forbid(unused_variables)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
 extern crate alloc;
@@ -32,13 +32,16 @@ pub use evm_core::*;
 pub use crate::context::{CallScheme, Context, CreateScheme};
 pub use crate::handler::{Handler, Transfer};
 pub use crate::interrupt::{Resolve, ResolveCall, ResolveCreate};
+pub use crate::eval::fill_external_table;
 
 use alloc::rc::Rc;
 use alloc::vec::Vec;
+use std::mem::transmute;
 
 macro_rules! step {
 	( $self:expr, $handler:expr, $return:tt $($err:path)?; $($ok:path)? ) => ({
-		let result = $self.machine.step($handler, &$self.context.address);
+		let context = unsafe { transmute::<&mut Self, usize>($self) };
+		let result = $self.machine.step($handler, context);
 		match result {
 			Ok(()) => $($ok)?(()),
 			Err(Capture::Exit(e)) => {

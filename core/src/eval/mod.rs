@@ -6,7 +6,7 @@ mod misc;
 
 use crate::{ExitError, ExitReason, ExitSucceed, InterpreterHandler, Machine, Opcode};
 use core::ops::{BitAnd, BitOr, BitXor};
-use primitive_types::{H160, U256};
+use primitive_types::U256;
 
 #[derive(Clone, Eq, PartialEq, Debug)]
 pub enum Control {
@@ -21,9 +21,9 @@ pub fn eval<H: InterpreterHandler>(
 	machine: &mut Machine,
 	position: usize,
 	handler: &mut H,
-	address: &H160,
+	context: usize,
 ) -> Control {
-	eval_table(machine, position, handler, address)
+	eval_table(machine, position, handler, context)
 }
 
 // Table-based interpreter, shows the smallest gas cost.
@@ -32,12 +32,12 @@ fn eval_table<H: InterpreterHandler>(
 	state: &mut Machine,
 	position: usize,
 	handler: &mut H,
-	address: &H160,
+	context: usize,
 ) -> Control {
-	static TABLE: [fn(state: &mut Machine, opcode: Opcode, position: usize) -> Control; 256] = {
-		fn eval_external(state: &mut Machine, opcode: Opcode, position: usize) -> Control {
+	static TABLE: [fn(state: &mut Machine, position: usize, context: usize) -> Control; 256] = {
+		fn eval_external(state: &mut Machine, position: usize, _context: usize) -> Control {
 			state.position = Ok(position + 1);
-			Control::Trap(opcode)
+			Control::Trap(Opcode(0))
 		}
 		let mut table = [eval_external as _; 256];
 		macro_rules! table_elem {
@@ -49,7 +49,7 @@ fn eval_table<H: InterpreterHandler>(
 			};
 			($operation:ident, $state:ident, $pc:ident, $definition:expr) => {
 				#[allow(non_snake_case)]
-				fn $operation($state: &mut Machine, _opcode: Opcode, $pc: usize) -> Control {
+				fn $operation($state: &mut Machine, $pc: usize, _context: usize) -> Control {
 					$definition
 				}
 				table[Opcode::$operation.as_usize()] = $operation as _;
@@ -284,7 +284,8 @@ fn eval_table<H: InterpreterHandler>(
 		table
 	};
 	let mut pc = position;
-	handler.before_eval();
+	let mut table = TABLE;
+	handler.before_eval(&mut table);
 	loop {
 		let op = match state.code.get(pc) {
 			Some(v) => Opcode(*v),
@@ -293,14 +294,14 @@ fn eval_table<H: InterpreterHandler>(
 				return Control::Exit(ExitSucceed::Stopped.into());
 			}
 		};
-		match handler.before_bytecode(op, pc, state, address) {
+		match handler.before_bytecode(op, pc, state, context) {
 			Ok(()) => (),
 			Err(e) => {
 				state.exit(e.clone().into());
 				return Control::Exit(ExitReason::Error(e));
 			}
 		};
-		let control = TABLE[op.as_usize()](state, op, pc);
+		let control = TABLE[op.as_usize()](state, pc, context);
 
 		#[cfg(feature = "tracing")]
 		{
@@ -315,6 +316,10 @@ fn eval_table<H: InterpreterHandler>(
 		pc = match control {
 			Control::Continue(bytes) => pc + bytes,
 			Control::Jump(pos) => pos,
+			Control::Trap(_) => {
+				handler.after_eval();
+				return Control::Trap(op);
+			}
 			_ => {
 				handler.after_eval();
 				return control;

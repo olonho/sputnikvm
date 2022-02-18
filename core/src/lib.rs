@@ -1,7 +1,7 @@
 //! Core layer for EVM.
 
 #![deny(warnings)]
-#![forbid(unsafe_code, unused_variables, unused_imports)]
+#![forbid(unused_variables, unused_imports)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
 extern crate alloc;
@@ -15,13 +15,14 @@ mod stack;
 mod utils;
 mod valids;
 
+pub use crate::eval::Control;
 pub use crate::error::{Capture, ExitError, ExitFatal, ExitReason, ExitRevert, ExitSucceed, Trap};
 pub use crate::memory::Memory;
 pub use crate::opcode::Opcode;
 pub use crate::stack::Stack;
 pub use crate::valids::Valids;
 
-use crate::eval::{eval, Control};
+use crate::eval::eval;
 use alloc::rc::Rc;
 use alloc::vec::Vec;
 use core::ops::Range;
@@ -47,7 +48,7 @@ pub struct Machine {
 
 /// EVM interpreter handler.
 pub trait InterpreterHandler {
-	fn before_eval(&mut self);
+	fn before_eval(&mut self, table: &mut [fn(state: &mut Machine, position: usize, context: usize) -> Control; 256]);
 
 	fn after_eval(&mut self);
 
@@ -56,7 +57,7 @@ pub trait InterpreterHandler {
 		opcode: Opcode,
 		pc: usize,
 		machine: &Machine,
-		address: &H160,
+		context: usize,
 	) -> Result<(), ExitError>;
 
 	// Only invoked if #[cfg(feature = "tracing")]
@@ -149,7 +150,7 @@ impl Machine {
 	pub fn run(&mut self) -> Capture<ExitReason, Trap> {
 		let mut handler = SimpleInterpreterHandler::default();
 		loop {
-			match self.step(&mut handler, &H160::default()) {
+			match self.step(&mut handler, 0) {
 				Ok(()) => (),
 				Err(res) => return res,
 			}
@@ -161,13 +162,13 @@ impl Machine {
 	pub fn step<H: InterpreterHandler>(
 		&mut self,
 		handler: &mut H,
-		address: &H160,
+		context: usize,
 	) -> Result<(), Capture<ExitReason, Trap>> {
 		let position = *self
 			.position
 			.as_ref()
 			.map_err(|reason| Capture::Exit(reason.clone()))?;
-		match eval(self, position, handler, address) {
+		match eval(self, position, handler, context) {
 			Control::Continue(_) | Control::Jump(_) => {
 				unreachable!("must not be here, eval computes branches");
 			}
@@ -205,7 +206,7 @@ impl SimpleInterpreterHandler {
 }
 
 impl InterpreterHandler for SimpleInterpreterHandler {
-	fn before_eval(&mut self) {}
+	fn before_eval(&mut self, _table: &mut [fn(state: &mut Machine, position: usize, context: usize) -> Control; 256]) {}
 
 	fn after_eval(&mut self) {}
 
@@ -215,7 +216,7 @@ impl InterpreterHandler for SimpleInterpreterHandler {
 		opcode: Opcode,
 		_pc: usize,
 		_machine: &Machine,
-		_address: &H160,
+		_context: usize,
 	) -> Result<(), ExitError> {
 		self.executed += 1;
 		self.profile[opcode.as_usize()] += 1;
