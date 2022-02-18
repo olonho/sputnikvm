@@ -70,13 +70,32 @@ pub fn fill_external_table(table: &mut [fn(state: &mut Machine, position: usize,
 		)
 	}
 	fn address(machine: &mut Machine, _position: usize, context: usize) -> evm_core::Control {
-		let runtime = from_context!(context); // unsafe { transmute::<usize, &mut Runtime>(context) };
+		let runtime = from_context!(context);
 		let ret = H256::from(runtime.context.address);
 		match machine.stack_mut().push(U256::from_big_endian(ret.as_bytes())) {
 			Ok(()) => (),
 			Err(e) => return evm_core::Control::Exit(e.into()),
 		}
 		evm_core::Control::Continue(1)
+	}
+	pub fn sha3(machine: &mut Machine, _position: usize, context: usize) -> evm_core::Control {
+
+		pop_u256!(runtime, from, len);
+
+		try_or_fail!(runtime.machine.memory_mut().resize_offset(from, len));
+		let data = if len == U256::zero() {
+			Vec::new()
+		} else {
+			let from = as_usize_or_fail!(from);
+			let len = as_usize_or_fail!(len);
+
+			runtime.machine.memory_mut().get(from, len)
+		};
+
+		let ret = Keccak256::digest(data.as_slice());
+		push_h256!(runtime, H256::from_slice(ret.as_slice()));
+
+		Control::Continue
 	}
 
 	table[Opcode::ADDRESS.as_usize()] = address;

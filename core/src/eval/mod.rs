@@ -301,7 +301,7 @@ fn eval_table<H: InterpreterHandler>(
 				return Control::Exit(ExitReason::Error(e));
 			}
 		};
-		let control = TABLE[op.as_usize()](state, pc, context);
+		let control = table[op.as_usize()](state, pc, context);
 
 		#[cfg(feature = "tracing")]
 		{
