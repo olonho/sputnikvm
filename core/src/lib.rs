@@ -15,8 +15,8 @@ mod stack;
 mod utils;
 mod valids;
 
-pub use crate::eval::Control;
 pub use crate::error::{Capture, ExitError, ExitFatal, ExitReason, ExitRevert, ExitSucceed, Trap};
+pub use crate::eval::Control;
 pub use crate::memory::Memory;
 pub use crate::opcode::Opcode;
 pub use crate::stack::Stack;
@@ -48,7 +48,10 @@ pub struct Machine {
 
 /// EVM interpreter handler.
 pub trait InterpreterHandler {
-	fn before_eval(&mut self, table: &mut [fn(state: &mut Machine, position: usize, context: usize) -> Control; 256]);
+	fn before_eval(
+		&mut self,
+		table: &mut [fn(state: &mut Machine, position: usize, context: usize) -> Control; 256],
+	);
 
 	fn after_eval(&mut self);
 
@@ -206,7 +209,11 @@ impl SimpleInterpreterHandler {
 }
 
 impl InterpreterHandler for SimpleInterpreterHandler {
-	fn before_eval(&mut self, _table: &mut [fn(state: &mut Machine, position: usize, context: usize) -> Control; 256]) {}
+	fn before_eval(
+		&mut self,
+		_table: &mut [fn(state: &mut Machine, position: usize, context: usize) -> Control; 256],
+	) {
+	}
 
 	fn after_eval(&mut self) {}
 

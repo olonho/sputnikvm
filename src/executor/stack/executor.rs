@@ -10,12 +10,12 @@ use alloc::{
 	vec::Vec,
 };
 use core::{cmp::min, convert::Infallible};
-use std::mem::transmute;
 use ethereum::Log;
 use evm_core::{Control, ExitFatal, ExitRevert, InterpreterHandler, Machine, Trap};
+use evm_runtime::fill_external_table;
 use primitive_types::{H160, H256, U256};
 use sha3::{Digest, Keccak256};
-use evm_runtime::fill_external_table;
+use std::mem::transmute;
 
 macro_rules! emit_exit {
 	($reason:expr) => {{
@@ -937,7 +937,10 @@ impl<'config, 'precompiles, S: StackState<'config>, P: PrecompileSet>
 impl<'config, 'precompiles, S: StackState<'config>, P: PrecompileSet> InterpreterHandler
 	for StackExecutor<'config, 'precompiles, S, P>
 {
-	fn before_eval(&mut self, table: &mut [fn(_: &mut Machine, _: usize, _: usize) -> Control; 256]) {
+	fn before_eval(
+		&mut self,
+		table: &mut [fn(_: &mut Machine, _: usize, _: usize) -> Control; 256],
+	) {
 		// Fill in all external bytecode declarations.
 		fill_external_table(table)
 	}
@@ -953,9 +956,7 @@ impl<'config, 'precompiles, S: StackState<'config>, P: PrecompileSet> Interprete
 		machine: &Machine,
 		context_raw: usize,
 	) -> Result<(), ExitError> {
-		let runtime = unsafe {
-			transmute::<usize, &mut Runtime>(context_raw)
-		};
+		let runtime = unsafe { transmute::<usize, &mut Runtime>(context_raw) };
 		#[cfg(feature = "tracing")]
 		{
 			use evm_runtime::tracing::Event::Step;

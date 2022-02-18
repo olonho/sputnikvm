@@ -30,9 +30,9 @@ mod interrupt;
 pub use evm_core::*;
 
 pub use crate::context::{CallScheme, Context, CreateScheme};
+pub use crate::eval::fill_external_table;
 pub use crate::handler::{Handler, Transfer};
 pub use crate::interrupt::{Resolve, ResolveCall, ResolveCreate};
-pub use crate::eval::fill_external_table;
 
 use alloc::rc::Rc;
 use alloc::vec::Vec;

@@ -2,9 +2,10 @@
 mod macros;
 mod system;
 
+use crate::{CallScheme, ExitFatal, ExitReason, Handler, Opcode, Runtime};
+use evm_core::{ExitError, Machine};
 use primitive_types::{H256, U256};
-use evm_core::Machine;
-use crate::{CallScheme, ExitReason, Handler, Opcode, Runtime};
+use sha3::{Digest, Keccak256};
 
 pub enum Control<H: Handler> {
 	Continue,
@@ -62,41 +63,140 @@ pub fn eval<H: Handler>(state: &mut Runtime, opcode: Opcode, handler: &mut H) ->
 	}
 }
 
-pub fn fill_external_table(table: &mut [fn(state: &mut Machine, position: usize, context: usize) -> evm_core::Control; 256]) {
+pub fn fill_external_table(
+	table: &mut [fn(state: &mut Machine, position: usize, context: usize) -> evm_core::Control;
+		     256],
+) {
 	use std::mem::transmute;
 	macro_rules! from_context {
-		( $context:expr ) => (
+		( $context:expr ) => {
 			unsafe { transmute::<usize, &mut Runtime>($context) }
+		};
+	}
+	macro_rules! pop_u256 {
+		( $machine:expr, $( $x:ident ),* ) => (
+			$(
+				let $x = match $machine.stack_mut().pop() {
+				Ok(value) => value,
+				Err(e) => return evm_core::Control::Exit(e.into()),
+			};
+		)*
+	);
+	}
+	macro_rules! push_u256 {
+		( $machine:expr, $( $x:expr ),* ) => (
+			$(
+				match $machine.stack_mut().push($x) {
+					Ok(_) => {},
+					Err(e) => return evm_core::Control::Exit(e.into()),
+				};
+			)*
+		);
+	}
+	macro_rules! push_h256 {
+	( $machine:expr, $( $x:expr ),* ) => (
+		$(
+			match $machine.stack_mut().push(U256::from_big_endian(&$x[..])) {
+				Ok(()) => (),
+				Err(e) => return evm_core::Control::Exit(e.into()),
+			}
+		)*
 		)
+	}
+	macro_rules! try_or_fail {
+		( $e:expr ) => {
+			match $e {
+				Ok(v) => v,
+				Err(e) => return evm_core::Control::Exit(e.into()),
+			}
+		};
+	}
+	macro_rules! as_usize_or_fail {
+		( $v:expr ) => {{
+			if $v > U256::from(usize::MAX) {
+				return evm_core::Control::Exit(ExitFatal::NotSupported.into());
+			}
+			$v.as_usize()
+		}};
+
+		( $v:expr, $reason:expr ) => {{
+			if $v > U256::from(usize::MAX) {
+				return evm_core::Control::Exit($reason.into());
+			}
+			$v.as_usize()
+		}};
 	}
 	fn address(machine: &mut Machine, _position: usize, context: usize) -> evm_core::Control {
 		let runtime = from_context!(context);
 		let ret = H256::from(runtime.context.address);
-		match machine.stack_mut().push(U256::from_big_endian(ret.as_bytes())) {
-			Ok(()) => (),
-			Err(e) => return evm_core::Control::Exit(e.into()),
-		}
+		push_h256!(machine, ret);
 		evm_core::Control::Continue(1)
 	}
-	pub fn sha3(machine: &mut Machine, _position: usize, context: usize) -> evm_core::Control {
-
-		pop_u256!(runtime, from, len);
-
-		try_or_fail!(runtime.machine.memory_mut().resize_offset(from, len));
+	fn sha3(machine: &mut Machine, _position: usize, _context: usize) -> evm_core::Control {
+		pop_u256!(machine, from, len);
+		try_or_fail!(machine.memory_mut().resize_offset(from, len));
 		let data = if len == U256::zero() {
 			Vec::new()
 		} else {
 			let from = as_usize_or_fail!(from);
 			let len = as_usize_or_fail!(len);
-
-			runtime.machine.memory_mut().get(from, len)
+			machine.memory_mut().get(from, len)
 		};
 
 		let ret = Keccak256::digest(data.as_slice());
-		push_h256!(runtime, H256::from_slice(ret.as_slice()));
+		push_h256!(machine, H256::from_slice(ret.as_slice()));
 
-		Control::Continue
+		evm_core::Control::Continue(1)
+	}
+	fn caller(machine: &mut Machine, _position: usize, context: usize) -> evm_core::Control {
+		let runtime = from_context!(context);
+		let ret = H256::from(runtime.context.caller);
+		push_h256!(machine, ret);
+		evm_core::Control::Continue(1)
+	}
+	fn callvalue(machine: &mut Machine, _position: usize, context: usize) -> evm_core::Control {
+		let runtime = from_context!(context);
+		let mut ret = H256::default();
+		runtime.context.apparent_value.to_big_endian(&mut ret[..]);
+		push_h256!(machine, ret);
+		evm_core::Control::Continue(1)
+	}
+	fn returndatasize(machine: &mut Machine, _position: usize, context: usize) -> evm_core::Control {
+		let runtime = from_context!(context);
+		let size = U256::from(runtime.return_data_buffer.len());
+		push_u256!(machine, size);
+		evm_core::Control::Continue(1)
+	}
+	fn returndatacopy(machine: &mut Machine, _position: usize, context: usize) -> evm_core::Control {
+		pop_u256!(machine, memory_offset, data_offset, len);
+		try_or_fail!(machine
+			.memory_mut()
+			.resize_offset(memory_offset, len));
+		let runtime = from_context!(context);
+		if data_offset
+			.checked_add(len)
+			.map(|l| l > U256::from(runtime.return_data_buffer.len()))
+			.unwrap_or(true)
+		{
+			return evm_core::Control::Exit(ExitError::OutOfOffset.into());
+		}
+
+		match machine.memory_mut().copy_large(
+			memory_offset,
+			data_offset,
+			len,
+			&runtime.return_data_buffer,
+		) {
+			Ok(()) => evm_core::Control::Continue(1),
+			Err(e) => evm_core::Control::Exit(e.into()),
+		}
 	}
 
 	table[Opcode::ADDRESS.as_usize()] = address;
+	table[Opcode::SHA3.as_usize()] = sha3;
+	table[Opcode::CALLER.as_usize()] = caller;
+	table[Opcode::CALLVALUE.as_usize()] = callvalue;
+	table[Opcode::RETURNDATASIZE.as_usize()] = returndatasize;
+	table[Opcode::RETURNDATACOPY.as_usize()] = returndatacopy;
+
 }
