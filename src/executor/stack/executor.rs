@@ -9,13 +9,13 @@ use alloc::{
 	rc::Rc,
 	vec::Vec,
 };
+use core::intrinsics::transmute;
 use core::{cmp::min, convert::Infallible};
 use ethereum::Log;
 use evm_core::{Control, ExitFatal, ExitRevert, InterpreterHandler, Machine, Trap};
 use evm_runtime::fill_external_table;
 use primitive_types::{H160, H256, U256};
 use sha3::{Digest, Keccak256};
-use std::mem::transmute;
 
 macro_rules! emit_exit {
 	($reason:expr) => {{

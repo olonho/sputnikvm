@@ -2,13 +2,11 @@
 mod macros;
 mod system;
 
-use crate::{
-	CallScheme, Context, ExitFatal, ExitReason, Handler, Opcode, Runtime, Transfer,
-};
+use crate::{CallScheme, Context, ExitFatal, ExitReason, Handler, Opcode, Runtime, Transfer};
+use core::cmp::min;
 use evm_core::{Capture, ExitError, ExitSucceed, Machine};
 use primitive_types::{H256, U256};
 use sha3::{Digest, Keccak256};
-use std::cmp::min;
 
 pub enum Control<H: Handler> {
 	Continue,
@@ -782,11 +780,7 @@ pub fn fill_external_table<H: Handler>(
 		context: usize,
 		handler: usize,
 	) -> evm_core::Control {
-		call::<H>(machine,
-			 position,
-			 context,
-			 handler,
-			 CallScheme::Call)
+		call::<H>(machine, position, context, handler, CallScheme::Call)
 	}
 	fn call_code<H: Handler>(
 		machine: &mut Machine,
@@ -794,11 +788,7 @@ pub fn fill_external_table<H: Handler>(
 		context: usize,
 		handler: usize,
 	) -> evm_core::Control {
-		call::<H>(machine,
-			 position,
-			 context,
-			 handler,
-			 CallScheme::CallCode)
+		call::<H>(machine, position, context, handler, CallScheme::CallCode)
 	}
 	fn static_call<H: Handler>(
 		machine: &mut Machine,
@@ -806,11 +796,7 @@ pub fn fill_external_table<H: Handler>(
 		context: usize,
 		handler: usize,
 	) -> evm_core::Control {
-		call::<H>(machine,
-			 position,
-			 context,
-			 handler,
-			 CallScheme::StaticCall)
+		call::<H>(machine, position, context, handler, CallScheme::StaticCall)
 	}
 	fn delegate_call<H: Handler>(
 		machine: &mut Machine,
@@ -818,11 +804,13 @@ pub fn fill_external_table<H: Handler>(
 		context: usize,
 		handler: usize,
 	) -> evm_core::Control {
-		call::<H>(machine,
-			 position,
-			 context,
-			 handler,
-			 CallScheme::DelegateCall)
+		call::<H>(
+			machine,
+			position,
+			context,
+			handler,
+			CallScheme::DelegateCall,
+		)
 	}
 	table[Opcode::ADDRESS.as_usize()] = address;
 	table[Opcode::SHA3.as_usize()] = sha3;

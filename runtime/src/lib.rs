@@ -36,7 +36,7 @@ pub use crate::interrupt::{Resolve, ResolveCall, ResolveCreate};
 
 use alloc::rc::Rc;
 use alloc::vec::Vec;
-use std::mem::transmute;
+use core::intrinsics::transmute;
 
 macro_rules! step {
 	( $self:expr, $handler:expr, $return:tt $($err:path)?; $($ok:path)? ) => ({

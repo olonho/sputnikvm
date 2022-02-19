@@ -5,9 +5,9 @@ mod bitwise;
 mod misc;
 
 use crate::{ExitError, ExitReason, ExitSucceed, InterpreterHandler, Machine, Opcode};
+use core::intrinsics::transmute;
 use core::ops::{BitAnd, BitOr, BitXor};
 use primitive_types::U256;
-use std::mem::transmute;
 
 #[derive(Clone, Eq, PartialEq, Debug)]
 pub enum Control {
