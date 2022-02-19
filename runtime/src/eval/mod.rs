@@ -72,7 +72,7 @@ pub fn fill_external_table<H: Handler>(
 		handler: usize,
 	) -> evm_core::Control; 256],
 ) {
-	use std::mem::transmute;
+	use core::intrinsics::transmute;
 	macro_rules! from_context {
 		( $context:expr ) => {
 			unsafe { transmute::<usize, &mut Runtime>($context) }
