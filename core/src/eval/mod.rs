@@ -7,6 +7,7 @@ mod misc;
 use crate::{ExitError, ExitReason, ExitSucceed, InterpreterHandler, Machine, Opcode};
 use core::ops::{BitAnd, BitOr, BitXor};
 use primitive_types::U256;
+use std::mem::transmute;
 
 #[derive(Clone, Eq, PartialEq, Debug)]
 pub enum Control {
@@ -34,8 +35,18 @@ fn eval_table<H: InterpreterHandler>(
 	handler: &mut H,
 	context: usize,
 ) -> Control {
-	static TABLE: [fn(state: &mut Machine, position: usize, context: usize) -> Control; 256] = {
-		fn eval_external(state: &mut Machine, position: usize, _context: usize) -> Control {
+	static TABLE: [fn(
+		state: &mut Machine,
+		position: usize,
+		context: usize,
+		handler: usize,
+	) -> Control; 256] = {
+		fn eval_external(
+			state: &mut Machine,
+			position: usize,
+			_context: usize,
+			_handler: usize,
+		) -> Control {
 			state.position = Ok(position + 1);
 			Control::Trap(Opcode(0))
 		}
@@ -49,7 +60,12 @@ fn eval_table<H: InterpreterHandler>(
 			};
 			($operation:ident, $state:ident, $pc:ident, $definition:expr) => {
 				#[allow(non_snake_case)]
-				fn $operation($state: &mut Machine, $pc: usize, _context: usize) -> Control {
+				fn $operation(
+					$state: &mut Machine,
+					$pc: usize,
+					_context: usize,
+					_handler: usize,
+				) -> Control {
 					$definition
 				}
 				table[Opcode::$operation.as_usize()] = $operation as _;
@@ -285,6 +301,7 @@ fn eval_table<H: InterpreterHandler>(
 	};
 	let mut pc = position;
 	let mut table = TABLE;
+	let vhandler = unsafe { transmute::<&H, usize>(handler) };
 	handler.before_eval(&mut table);
 	loop {
 		let op = match state.code.get(pc) {
@@ -301,7 +318,7 @@ fn eval_table<H: InterpreterHandler>(
 				return Control::Exit(ExitReason::Error(e));
 			}
 		};
-		let control = table[op.as_usize()](state, pc, context);
+		let control = table[op.as_usize()](state, pc, context, vhandler);
 
 		#[cfg(feature = "tracing")]
 		{

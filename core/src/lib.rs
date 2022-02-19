@@ -50,7 +50,7 @@ pub struct Machine {
 pub trait InterpreterHandler {
 	fn before_eval(
 		&mut self,
-		table: &mut [fn(state: &mut Machine, position: usize, context: usize) -> Control; 256],
+		table: &mut [fn(state: &mut Machine, _: usize, _: usize, _: usize) -> Control; 256],
 	);
 
 	fn after_eval(&mut self);
@@ -211,7 +211,7 @@ impl SimpleInterpreterHandler {
 impl InterpreterHandler for SimpleInterpreterHandler {
 	fn before_eval(
 		&mut self,
-		_table: &mut [fn(state: &mut Machine, position: usize, context: usize) -> Control; 256],
+		_table: &mut [fn(state: &mut Machine, _: usize, _: usize, _: usize) -> Control; 256],
 	) {
 	}
 

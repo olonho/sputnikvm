@@ -939,10 +939,10 @@ impl<'config, 'precompiles, S: StackState<'config>, P: PrecompileSet> Interprete
 {
 	fn before_eval(
 		&mut self,
-		table: &mut [fn(_: &mut Machine, _: usize, _: usize) -> Control; 256],
+		table: &mut [fn(_: &mut Machine, _: usize, _: usize, _: usize) -> Control; 256],
 	) {
 		// Fill in all external bytecode declarations.
-		fill_external_table(table)
+		fill_external_table::<Self>(table)
 	}
 
 	#[inline]
