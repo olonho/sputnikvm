@@ -3,6 +3,7 @@ mod macros;
 mod system;
 
 use crate::{CallScheme, Context, ExitFatal, ExitReason, Handler, Opcode, Runtime, Transfer};
+use alloc::vec::Vec;
 use core::cmp::min;
 use evm_core::{Capture, ExitError, ExitSucceed, Machine};
 use primitive_types::{H256, U256};
