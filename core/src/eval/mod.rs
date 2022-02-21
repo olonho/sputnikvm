@@ -300,9 +300,9 @@ fn eval_table<H: InterpreterHandler>(
 		table
 	};
 	let mut pc = position;
-	let mut table = TABLE;
+	//let mut table = TABLE;
 	let vhandler = unsafe { transmute::<&H, usize>(handler) };
-	handler.before_eval(&mut table);
+	//handler.before_eval(&mut table);
 	loop {
 		let op = match state.code.get(pc) {
 			Some(v) => Opcode(*v),
@@ -318,7 +318,7 @@ fn eval_table<H: InterpreterHandler>(
 				return Control::Exit(ExitReason::Error(e));
 			}
 		};
-		let control = table[op.as_usize()](state, pc, context, vhandler);
+		let control = TABLE[op.as_usize()](state, pc, context, vhandler);
 
 		#[cfg(feature = "tracing")]
 		{
