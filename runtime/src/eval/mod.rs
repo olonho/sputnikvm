@@ -2,7 +2,7 @@
 mod macros;
 mod system;
 
-use crate::{CallScheme, Context, ExitFatal, ExitReason, Handler, Opcode, Runtime, Transfer};
+use crate::{CallScheme, Context, CreateScheme, ExitFatal, ExitReason, Handler, Opcode, Runtime, Transfer};
 use alloc::vec::Vec;
 use core::cmp::min;
 use evm_core::{Capture, ExitError, ExitSucceed, Machine};
@@ -12,6 +12,7 @@ use sha3::{Digest, Keccak256};
 pub enum Control<H: Handler> {
 	Continue,
 	CallInterrupt(H::CallInterrupt),
+
 	CreateInterrupt(H::CreateInterrupt),
 	Exit(ExitReason),
 }
@@ -559,7 +560,6 @@ pub fn fill_external_table<H: Handler>(
 		}
 		evm_core::Control::Exit(ExitSucceed::Suicided.into())
 	}
-	/*
 	fn create<H: Handler>(
 		machine: &mut Machine,
 		_position: usize,
@@ -621,9 +621,9 @@ pub fn fill_external_table<H: Handler>(
 					}
 				}
 			}
-			Capture::Trap(interrupt) => {
+			Capture::Trap(_) => {
 				push_h256!(machine, H256::default());
-				evm_core::Control::Exit(Control::CreateInterrupt(interrupt).into())
+				unreachable!("Trap is Infallible")
 			}
 		}
 	}
@@ -633,7 +633,7 @@ pub fn fill_external_table<H: Handler>(
 		context: usize,
 		handler: usize,
 	) -> evm_core::Control {
-		create(machine, position, context, handler, false)
+		create::<H>(machine, position, context, handler, false)
 	}
 	fn create2<H: Handler>(
 		machine: &mut Machine,
@@ -641,8 +641,8 @@ pub fn fill_external_table<H: Handler>(
 		context: usize,
 		handler: usize,
 	) -> evm_core::Control {
-		create(machine, position, context, handler, true)
-	} */
+		create::<H>(machine, position, context, handler, true)
+	}
 	pub fn call<H: Handler>(
 		machine: &mut Machine,
 		_position: usize,
@@ -770,8 +770,7 @@ pub fn fill_external_table<H: Handler>(
 			}
 			Capture::Trap(_interrupt) => {
 				push_h256!(machine, H256::default());
-				//evm_core::Control::Exit(Control::CallInterrupt(interrupt).into())
-				unreachable!()
+				unreachable!("Trap is Infallible")
 			}
 		}
 	}
@@ -813,25 +812,21 @@ pub fn fill_external_table<H: Handler>(
 			CallScheme::DelegateCall,
 		)
 	}
-	table[Opcode::ADDRESS.as_usize()] = address;
 	table[Opcode::SHA3.as_usize()] = sha3;
-	table[Opcode::CHAINID.as_usize()] = chainid::<H>;
-	table[Opcode::CALLER.as_usize()] = caller::<H>;
-	table[Opcode::CALLVALUE.as_usize()] = callvalue;
-	table[Opcode::RETURNDATASIZE.as_usize()] = returndatasize;
-	table[Opcode::RETURNDATACOPY.as_usize()] = returndatacopy;
-	table[Opcode::CHAINID.as_usize()] = chainid::<H>;
+	table[Opcode::ADDRESS.as_usize()] = address;
 	table[Opcode::BALANCE.as_usize()] = balance::<H>;
 	table[Opcode::SELFBALANCE.as_usize()] = selfbalance::<H>;
 	table[Opcode::ORIGIN.as_usize()] = origin::<H>;
+	table[Opcode::CALLER.as_usize()] = caller::<H>;
+	table[Opcode::CALLVALUE.as_usize()] = callvalue;
 	table[Opcode::GASPRICE.as_usize()] = gasprice::<H>;
-	table[Opcode::BASEFEE.as_usize()] = base_fee::<H>;
+	table[Opcode::EXTCODESIZE.as_usize()] = extcodesize::<H>;
 	table[Opcode::EXTCODEHASH.as_usize()] = extcodehash::<H>;
 	table[Opcode::EXTCODECOPY.as_usize()] = extcodecopy::<H>;
-	table[Opcode::EXTCODESIZE.as_usize()] = extcodesize::<H>;
+	table[Opcode::RETURNDATASIZE.as_usize()] = returndatasize;
+	table[Opcode::RETURNDATACOPY.as_usize()] = returndatacopy;
 	table[Opcode::BLOCKHASH.as_usize()] = blockhash::<H>;
 	table[Opcode::COINBASE.as_usize()] = coinbase::<H>;
-	table[Opcode::BLOCKHASH.as_usize()] = blockhash::<H>;
 	table[Opcode::TIMESTAMP.as_usize()] = timestamp::<H>;
 	table[Opcode::NUMBER.as_usize()] = number::<H>;
 	table[Opcode::DIFFICULTY.as_usize()] = difficulty::<H>;
@@ -839,16 +834,18 @@ pub fn fill_external_table<H: Handler>(
 	table[Opcode::SLOAD.as_usize()] = sload::<H>;
 	table[Opcode::SSTORE.as_usize()] = sstore::<H>;
 	table[Opcode::GAS.as_usize()] = gas::<H>;
-	table[Opcode::SUICIDE.as_usize()] = suicide::<H>;
 	table[Opcode::LOG0.as_usize()] = log0::<H>;
 	table[Opcode::LOG1.as_usize()] = log1::<H>;
 	table[Opcode::LOG2.as_usize()] = log2::<H>;
 	table[Opcode::LOG3.as_usize()] = log3::<H>;
 	table[Opcode::LOG4.as_usize()] = log4::<H>;
-	// table[Opcode::CREATE.as_usize()] = create1::<H>;
-	// table[Opcode::CREATE2.as_usize()] = create2::<H>;
+	table[Opcode::SUICIDE.as_usize()] = suicide::<H>;
+	table[Opcode::CREATE.as_usize()] = create1::<H>;
+	table[Opcode::CREATE2.as_usize()] = create2::<H>;
 	table[Opcode::CALL.as_usize()] = call_regular::<H>;
 	table[Opcode::CALLCODE.as_usize()] = call_code::<H>;
 	table[Opcode::DELEGATECALL.as_usize()] = delegate_call::<H>;
 	table[Opcode::STATICCALL.as_usize()] = static_call::<H>;
+	table[Opcode::CHAINID.as_usize()] = chainid::<H>;
+	table[Opcode::BASEFEE.as_usize()] = base_fee::<H>;
 }
