@@ -48,9 +48,12 @@ pub struct Machine {
 
 /// EVM interpreter handler.
 pub trait InterpreterHandler {
-	fn before_eval(
-		&mut self,
+	fn adjust_table(
 		table: &mut [fn(state: &mut Machine, _: usize, _: usize, _: usize) -> Control; 256],
+	);
+
+	fn before_eval(
+		&mut self
 	);
 
 	fn after_eval(&mut self);
@@ -209,11 +212,11 @@ impl SimpleInterpreterHandler {
 }
 
 impl InterpreterHandler for SimpleInterpreterHandler {
-	fn before_eval(
-		&mut self,
+	fn adjust_table(
 		_table: &mut [fn(state: &mut Machine, _: usize, _: usize, _: usize) -> Control; 256],
-	) {
-	}
+	) {}
+
+	fn before_eval(&mut self) {}
 
 	fn after_eval(&mut self) {}
 

@@ -937,13 +937,13 @@ impl<'config, 'precompiles, S: StackState<'config>, P: PrecompileSet>
 impl<'config, 'precompiles, S: StackState<'config>, P: PrecompileSet> InterpreterHandler
 	for StackExecutor<'config, 'precompiles, S, P>
 {
-	fn before_eval(
-		&mut self,
-		_table: &mut [fn(_: &mut Machine, _: usize, _: usize, _: usize) -> Control; 256],
+	fn adjust_table(
+		table: &mut [fn(_: &mut Machine, _: usize, _: usize, _: usize) -> Control; 256],
 	) {
-		// Fill in all external bytecode declarations.
-		//fill_external_table::<Self>(table)
+		fill_external_table::<Self>(table)
 	}
+
+	fn before_eval(&mut self) {}
 
 	#[inline]
 	fn after_eval(&mut self) {}

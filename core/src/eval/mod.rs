@@ -297,12 +297,15 @@ fn eval_table<H: InterpreterHandler>(
 		table_elem!(JUMPDEST, Control::Continue(1));
 		table_elem!(JUMP, state, self::misc::jump(state));
 		table_elem!(JUMPI, state, self::misc::jumpi(state));
+
+		H::adjust_table(&mut table);
+
 		table
 	};
 	let mut pc = position;
 	//let mut table = TABLE;
 	let vhandler = unsafe { transmute::<&H, usize>(handler) };
-	//handler.before_eval(&mut table);
+	//
 	loop {
 		let op = match state.code.get(pc) {
 			Some(v) => Opcode(*v),
