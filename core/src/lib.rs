@@ -148,8 +148,9 @@ impl Machine {
 	/// Loop stepping the machine, until it stops.
 	pub fn run(&mut self) -> Capture<ExitReason, Trap> {
 		let mut handler = SimpleInterpreterHandler::default();
+		let address = H160::default();
 		loop {
-			match self.step(&mut handler, &H160::default()) {
+			match self.step(&mut handler, &address) {
 				Ok(()) => (),
 				Err(res) => return res,
 			}
@@ -168,14 +169,12 @@ impl Machine {
 			.as_ref()
 			.map_err(|reason| Capture::Exit(reason.clone()))?;
 		match eval(self, position, handler, address) {
-			Control::Continue(_) | Control::Jump(_) => {
-				unreachable!("must not be here, eval computes branches");
-			}
 			Control::Exit(e) => {
 				self.position = Err(e.clone());
 				Err(Capture::Exit(e))
 			}
 			Control::Trap(opcode) => Err(Capture::Trap(opcode)),
+			Control::Continue(_) | Control::Jump(_) => Ok(()),
 		}
 	}
 }

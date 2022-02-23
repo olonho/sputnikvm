@@ -83,8 +83,8 @@ fn eval_table<H: InterpreterHandler>(
 		table_elem!(POP, state, self::misc::pop(state));
 		table_elem!(PC, state, position, self::misc::pc(state, position));
 		table_elem!(MSIZE, state, self::misc::msize(state));
-		table_elem!(PUSH1, state, position, self::misc::push(state, 1, position));
-		table_elem!(PUSH2, state, position, self::misc::push(state, 2, position));
+		table_elem!(PUSH1, state, position, self::misc::push1(state, position));
+		table_elem!(PUSH2, state, position, self::misc::push2(state, position));
 		table_elem!(PUSH3, state, position, self::misc::push(state, 3, position));
 		table_elem!(PUSH4, state, position, self::misc::push(state, 4, position));
 		table_elem!(PUSH5, state, position, self::misc::push(state, 5, position));

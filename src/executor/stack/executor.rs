@@ -2,7 +2,7 @@ use crate::backend::Backend;
 use crate::gasometer::{self, Gasometer, StorageTarget};
 use crate::{
 	Capture, Config, Context, CreateScheme, ExitError, ExitReason, ExitSucceed, Handler, Opcode,
-	Runtime, Stack, Transfer,
+	Runtime, Transfer,
 };
 use alloc::{
 	collections::{BTreeMap, BTreeSet},
@@ -1215,47 +1215,5 @@ impl<'config, 'precompiles, S: StackState<'config>, P: PrecompileSet> Handler
 		}
 
 		capture
-	}
-
-	#[inline]
-	fn pre_validate(
-		&mut self,
-		context: &Context,
-		opcode: Opcode,
-		stack: &Stack,
-	) -> Result<(), ExitError> {
-		// log::trace!(target: "evm", "Running opcode: {:?}, Pre gas-left: {:?}", opcode, gasometer.gas());
-
-		if let Some(cost) = gasometer::static_opcode_cost(opcode) {
-			self.state
-				.metadata_mut()
-				.gasometer
-				.record_cost(cost as u64)?;
-		} else {
-			let is_static = self.state.metadata().is_static;
-			let (gas_cost, target, memory_cost) = gasometer::dynamic_opcode_cost(
-				context.address,
-				opcode,
-				stack,
-				is_static,
-				self.config,
-				self,
-			)?;
-
-			let gasometer = &mut self.state.metadata_mut().gasometer;
-
-			gasometer.record_dynamic_cost(gas_cost, memory_cost)?;
-			match target {
-				StorageTarget::Address(address) => {
-					self.state.metadata_mut().access_address(address)
-				}
-				StorageTarget::Slot(address, key) => {
-					self.state.metadata_mut().access_storage(address, key)
-				}
-				StorageTarget::None => (),
-			}
-		}
-
-		Ok(())
 	}
 }
